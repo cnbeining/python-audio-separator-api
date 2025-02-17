@@ -52,7 +52,7 @@ class AudioSeparatorLitAPI(ls.LitAPI):
     def predict(self, x: str) -> str:
         try:
             output_names = {
-                "Vocals": f"{x}_vocals.wav",
+                "Vocals": f"{x}_vocals.mp3",
             }
             self.separator.separate(x, output_names)
 
@@ -62,7 +62,7 @@ class AudioSeparatorLitAPI(ls.LitAPI):
             except Exception as e:
                 logger.warning(f"Failed to remove input file {x}: {str(e)}")
 
-            return f"{x}_vocals.wav"
+            return f"{x}_vocals.mp3"
         except Exception as e:
             logger.error(f"Separation failed: {str(e)}")
             raise HTTPException(status_code=500, detail="Audio separation failed")
