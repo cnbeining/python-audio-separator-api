@@ -8,18 +8,28 @@ import litserve as ls
 import torch
 from fastapi import HTTPException, UploadFile, Request
 from fastapi.responses import FileResponse
+from starlette.background import BackgroundTask
 
 logger = logging.getLogger(__name__)
 
+temp_dir = Path("/tmp")
+
 
 class AudioSeparatorLitAPI(ls.LitAPI):
-    def setup(self, device: str = None) -> None:
+    def setup(self, device) -> None:
         try:
             from audio_separator.separator import Separator
 
-            # Pass the device to use_autocast and configure device-specific settings
+            # Use the provided device
+            print('Using device:', device)
             use_autocast = device == "cuda"
-            self.separator = Separator(use_autocast=use_autocast, output_format="mp3")
+            if "cuda" in device:
+                use_autocast = True
+            self.separator = Separator(use_autocast=use_autocast, 
+                      output_format="mp3", 
+                      output_dir=temp_dir, 
+                      output_single_stem="Vocals",
+                      )
             self.separator.load_model(
                 model_filename="model_bs_roformer_ep_368_sdr_12.9628.ckpt"
             )
@@ -37,7 +47,6 @@ class AudioSeparatorLitAPI(ls.LitAPI):
         if len(filename) < 2:
             raise HTTPException(status_code=400, detail="Invalid file format")
 
-        temp_dir = Path("/tmp")
         path = temp_dir / f"{filename[0]}_{timestamp}.{filename[-1]}"
 
         try:
@@ -51,10 +60,18 @@ class AudioSeparatorLitAPI(ls.LitAPI):
 
     def predict(self, x: str) -> str:
         try:
+            # Generate unique output filename with timestamp
+            timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+            input_filename = Path(x).stem
+            output_filename = f"{input_filename}_{timestamp}_vocals.mp3"
+            
             output_names = {
-                "Vocals": f"{x}_vocals.mp3",
+                "Vocals": output_filename.replace('.mp3', ''),  # Separator will add .mp3 extension
             }
             self.separator.separate(x, output_names)
+
+            # Get the output file path
+            output_path = temp_dir / output_filename
 
             # Clean up the original input file
             try:
@@ -62,26 +79,24 @@ class AudioSeparatorLitAPI(ls.LitAPI):
             except Exception as e:
                 logger.warning(f"Failed to remove input file {x}: {str(e)}")
 
-            return f"{x}_vocals.mp3"
+            return str(output_path)
         except Exception as e:
             logger.error(f"Separation failed: {str(e)}")
             raise HTTPException(status_code=500, detail="Audio separation failed")
+
+    @staticmethod
+    def cleanup_file(output_path: str):
+        try:
+            os.remove(output_path)
+            logger.info(f"Cleaned up output file: {output_path}")
+        except Exception as e:
+            logger.warning(f"Failed to clean up file {output_path}: {str(e)}")
 
     def encode_response(self, output: str) -> FileResponse:
         if not os.path.exists(output):
             raise HTTPException(status_code=404, detail="Output file not found")
 
-        response = FileResponse(output)
-
-        # Clean up the output file after sending
-        def cleanup(output_path: str = output):
-            try:
-                os.remove(output_path)
-                logger.info(f"Cleaned up output file: {output_path}")
-            except Exception as e:
-                logger.warning(f"Failed to clean up file {output_path}: {str(e)}")
-
-        response.background = cleanup
+        response = FileResponse(output, background=BackgroundTask(AudioSeparatorLitAPI.cleanup_file, output))
         return response
 
 
