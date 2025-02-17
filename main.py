@@ -8,32 +8,9 @@ import litserve as ls
 import torch
 from fastapi import HTTPException, UploadFile, Request
 from fastapi.responses import FileResponse
-from starlette.middleware.base import BaseHTTPMiddleware, RequestResponseEndpoint
-from starlette.responses import Response
 
 logger = logging.getLogger(__name__)
 
-# Load API key from environment variable
-API_KEY = os.getenv("API_KEY")
-if not API_KEY:
-    raise ValueError("API_KEY environment variable must be set")
-
-class APIKeyMiddleware(BaseHTTPMiddleware):
-    async def dispatch(
-        self, request: Request, call_next: RequestResponseEndpoint
-    ) -> Response:
-        api_key = request.headers.get("X-API-Key")
-        if not api_key:
-            raise HTTPException(
-                status_code=401,
-                detail="API key missing. Please provide it in the X-API-Key header",
-            )
-        if api_key != API_KEY:
-            raise HTTPException(
-                status_code=403,
-                detail="Invalid API key",
-            )
-        return await call_next(request)
 
 class AudioSeparatorLitAPI(ls.LitAPI):
     def setup(self, device: str = None) -> None:
@@ -130,8 +107,5 @@ if __name__ == "__main__":
     server = ls.LitServer(
         api, accelerator=accelerator, timeout=1000, workers_per_device=2
     )
-    
-    # Add the API key middleware
-    server.app.add_middleware(APIKeyMiddleware)
     
     server.run(port=8000)
