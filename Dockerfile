@@ -28,4 +28,4 @@ WORKDIR /app
 # force the model to be downloaded
 RUN audio-separator --download_model_only
 
-CMD ["python", "main.py"]
+CMD ["python3", "main.py"]
