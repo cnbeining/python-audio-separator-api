@@ -11,4 +11,6 @@ WORKDIR /app
 # force the model to be downloaded
 RUN audio-separator --download_model_only
 
+ENV PATH=/usr/local/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+
 CMD ["python", "main.py"]
