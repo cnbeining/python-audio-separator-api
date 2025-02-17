@@ -9,4 +9,4 @@ WORKDIR /app
 # force the model to be downloaded
 RUN audio-separator
 
-CMD ["python", "main.py"]
+CMD ["python3", "main.py"]
