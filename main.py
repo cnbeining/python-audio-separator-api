@@ -54,7 +54,7 @@ class AudioSeparatorLitAPI(ls.LitAPI):
             output_names = {
                 "Vocals": f"{x}_vocals.wav",
             }
-            self.separator.separate(x, output_names=output_names)
+            self.separator.separate(x, output_names)
 
             # Clean up the original input file
             try:
